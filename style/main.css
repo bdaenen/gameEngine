@@ -1,0 +1,23 @@
+body{
+	background-color: #5E5E5E;
+	overflow: hidden;
+	margin: 0;
+}
+.content{
+	margin: 0 auto;
+	width: 1280px;
+}
+canvas{
+	background-color: transparent;
+	position: absolute;
+}
+canvas#preloading{
+	background-color: #000;
+}
+#predraw-canvas{
+	left: -9999px;
+}
+img{
+	position: absolute;
+	left: -9999px;
+}
