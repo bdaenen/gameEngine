@@ -1,7 +1,5 @@
 $(function(){
-    player = new Engine.Player({
-        y: 30
-    });
+    player = new Engine.Player();
     map = new Engine.Map({
         width: 1600,
         height: 1600,
@@ -19,15 +17,14 @@ $(function(){
         player.draw();
         map.draw();
     };
-    Engine.init({
+    Engine.start({
+        level: map,
+        player: player,
         updateFunction: update,
         drawFunction: draw
     });
-    $('canvas').click(function(){
+    /*$('canvas').click(function(){
         inputArray.push('right');
         keydown['right'] = true;
-    });
+    });*/
 });
-
-//TODO:: rewrite starting position of map to be independant of player
-//TODO:: and be tile-based

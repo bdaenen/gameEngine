@@ -28,7 +28,7 @@ window.requestAnimFrame = (function(){
 ////
 const CANVAS_WIDTH = window.innerWidth <= 1280 ? window.innerWidth : 1280;
 const CANVAS_HEIGHT = window.innerHeight <= 720 ? window.innerHeight: 720;
-console.log(CANVAS_HEIGHT, CANVAS_WIDTH);
+
 const FPS = 60;
 const FRAMETIME = Math.ceil(1000/FPS);
 const CANVAS_CONTAINER = '.content';
@@ -42,7 +42,7 @@ const MOVEMENT_SPEED = 2;
 const BLOCKED_KEYS = ['up', 'down', 'left', 'right', 'space'];
 var inputArray = [];
 
-//Capture all keys, keydown holds array of currently "down" keys.
+//Capture all keys, filter on BLOCKED_KEYS, keydown[] contains currently "held down" keys.
 $(function() {
     window.keydown = {};
     function getKeyName(event) {
@@ -78,11 +78,12 @@ $(function() {
 });
 
 var Engine = new function(){
-    this.updateGame = '';
-    this.drawGame = '';
-    this.init = function( options ){
+    this.start = function( options ){
         this.updateGame = options.updateFunction;
         this.drawGame = options.drawFunction;
+        options.level.preload( function(){
+            startGame();
+        });
     };
     ////
     // General functions
@@ -137,27 +138,25 @@ var Engine = new function(){
     function update(){
         Engine.updateGame();
         Engine.drawGame();
-        var delta = (new Date().getTime() - oldTime)/1000;
-        oldTime = new Date().getTime();
+        var delta = (new Date().getTime() - this.oldTime)/1000;
+        this.oldTime = new Date().getTime();
         setTimeout( update, FRAMETIME - delta );
     }
 
     //Executes the specified draw operations, then calls itself with a RAF-shim
-   /* function draw(){
+    function draw(){
         Engine.drawGame();
         requestAnimFrame( draw );
-    }*/
+    }
 
-    this.startGame = function(){
-        console.log('starting!');
-        oldTime = new Date().getTime();
+    function startGame(){
+        this.oldTime = new Date().getTime();
         update();
-       // draw();
-    };
+        draw();
+    }
     ////
     // Maps
     ////
-
     //TODO: move height/width to maps.js?
     this.Map = function( options ){
         var defaultOptions = this.getDefaultOptions();
@@ -171,7 +170,6 @@ var Engine = new function(){
         this.fgCanvas = createCanvas({
             zIndex: 2
         });
-        this.preloaded = false;
         //Read these from colArray
         this.x = -options.startx;
         this.y = -options.starty;
@@ -182,10 +180,6 @@ var Engine = new function(){
         this.layers = [];
         this.subject = options.subject;
         this.collisions = {left: false, right: false, up: false, down: false};
-        this.preload( this.layers, function(){
-            this.preloaded = true;
-            Engine.startGame();
-        } );
         return this;
     };
     this.Map.prototype.getDefaultOptions = function(){
@@ -198,10 +192,12 @@ var Engine = new function(){
             speed: MOVEMENT_SPEED
         };
     };
-    this.Map.prototype.preload = function( destinationArray, onComplete ){
+    this.Map.prototype.preload = function( onComplete ){
         var loadingScreen = showLoadingScreen();
-        var operations = MAPS[this.name];
+        var operations = MAPS[this.name].paths;
         var promises = [];
+        var destinationArray = this.layers;
+
         for (var i = 0; i < operations.length; i++) {
             (function(url, promise) {
                 if( url.split('.').pop() == "png")
@@ -217,6 +213,7 @@ var Engine = new function(){
                 {
                     $.ajax({
                         url: url,
+                        cache: false,
                         success: function(response){
                             destinationArray[TYPE_COL] = response;
                             promise.resolve();
@@ -228,7 +225,6 @@ var Engine = new function(){
         $.when.apply($, promises).done(function() {
             clearLoadingScreen(loadingScreen);
             onComplete();
-            //init update/draw of map
         });
     };
 
@@ -335,8 +331,6 @@ var Engine = new function(){
             );
             this.prevx = this.x;
             this.prevy = this.y;
-            this.subject.prevx = this.subject.x;
-            this.subject.prevy = this.subject.y;
         }
     };
     ////
@@ -380,6 +374,7 @@ var Engine = new function(){
             spriteCols: 3,
             spriteWidth: 96,
             spriteHeight: 128,
+            speed: MOVEMENT_SPEED,
             spriteSets: {
                 'left': {name: 'left', from: 3, until:5},
                 'right': {name: 'right', from:6, until:8},
@@ -415,14 +410,9 @@ var Engine = new function(){
             this.sprite.updateSprite();
         }
 
-        // Keep position within viewport
-        /*this.x = this.x.clamp(0, CANVAS_WIDTH - this.width);
-         this.y = this.y.clamp(0, CANVAS_HEIGHT - this.height);*/
-
         //Previous position (needed later?)
-        /*this.prevx = this.x;
-         this.prevy = this.y;
-         //  */
+        this.prevx = this.x;
+        this.prevy = this.y;
     };
     this.Player.prototype.draw = function(){
         this.canvas.clearRect(this.x-5, this.y-5, this.width+10, this.height+10);
