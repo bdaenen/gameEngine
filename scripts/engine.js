@@ -137,7 +137,6 @@ var Engine = new function(){
     //executes the specified update operations, then calculates delta (improve timer precision), recursive
     function update(){
         Engine.updateGame();
-        Engine.drawGame();
         var delta = (new Date().getTime() - this.oldTime)/1000;
         this.oldTime = new Date().getTime();
         setTimeout( update, FRAMETIME - delta );
