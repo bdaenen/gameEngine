@@ -85,10 +85,10 @@ var Engine = new function(){
             startGame();
         });
     };
-    ////
-    // General functions
-    ////
 
+////
+// General functions
+////
     //Creates a canvas and adds it to the specified container
     function createCanvas( options ){
         var defaultOptions = {
@@ -134,6 +134,12 @@ var Engine = new function(){
         removeCanvas(preloadCanvas);
     }
 
+    //Calculates which tile the given coordinate is on
+    function pixelsToTile( pixelPosition )
+    {
+        return {x: Math.round( pixelPosition.x/TILE_WIDTH), y: Math.round( pixelPosition.y/TILE_HEIGHT)};
+    }
+
     //executes the specified update operations, then calculates delta (improve timer precision), recursive
     function update(){
         Engine.updateGame();
@@ -153,10 +159,10 @@ var Engine = new function(){
         update();
         draw();
     }
-    ////
-    // Maps
-    ////
-    //TODO: move height/width to maps.js?
+
+////
+// Maps
+////
     this.Map = function( options ){
         var defaultOptions = this.getDefaultOptions();
         options = (typeof options == 'object') ? $.extend(defaultOptions, options) : defaultOptions;
@@ -169,28 +175,20 @@ var Engine = new function(){
         this.fgCanvas = createCanvas({
             zIndex: 2
         });
-        //Read these from colArray
-        this.x = -options.startx;
-        this.y = -options.starty;
-        this.prevx = 0;
-        this.prevy = 0;
         this.name = options.name;
-        this.speed = options.speed;
         this.layers = [];
-        this.subject = options.subject;
-        this.collisions = {left: false, right: false, up: false, down: false};
         return this;
     };
+
     this.Map.prototype.getDefaultOptions = function(){
         return{
             width: CANVAS_WIDTH,
             height: CANVAS_HEIGHT,
-            startx: 0,
-            starty: 0,
-            name: DEFAULT_MAP,
-            speed: MOVEMENT_SPEED
+            name: DEFAULT_MAP
         };
     };
+
+    //Move this to camera?
     this.Map.prototype.preload = function( onComplete ){
         var loadingScreen = showLoadingScreen();
         var operations = MAPS[this.name].paths;
@@ -227,114 +225,9 @@ var Engine = new function(){
         });
     };
 
-    this.Map.prototype.getSubjectPosition = function(){
-        return {
-            x: this.x - this.subject.x - this.subject.width,
-            y: this.y - this.subject.y - this.subject.height
-        }
-    };
-
-    this.Map.prototype.pixelsToTile = function( pixelPosition )
-    {
-        return {x: Math.round( pixelPosition.x/TILE_WIDTH)+1, y: Math.round( pixelPosition.y/TILE_HEIGHT)+1};
-    };
-
-    this.Map.prototype.checkCollisions = function(){
-        var pixelPosition = this.getSubjectPosition();
-        var tiles = {
-            left: this.pixelsToTile({x:pixelPosition.x + MOVEMENT_SPEED, y: pixelPosition.y}),
-            right: this.pixelsToTile({x:pixelPosition.x - MOVEMENT_SPEED, y: pixelPosition.y}),
-            up: this.pixelsToTile({x:pixelPosition.x, y: pixelPosition.y + MOVEMENT_SPEED}),
-            down: this.pixelsToTile({x:pixelPosition.x ,y:pixelPosition.y - MOVEMENT_SPEED})
-        };
-        for( var x in tiles )
-        {
-            switch(this.layers[TYPE_COL].data[(-tiles[x].x) + this.layers[TYPE_COL].width*(-tiles[x].y)])
-            {
-                case CTILE:
-                    this.collisions[x] = true;
-                    break;
-                case WTILE:
-                    this.collisions[x] = !this.subject.canSwim;
-                    break;
-                default:
-                    this.collisions[x] = false;
-                    break;
-            }
-        }
-        return this.collisions;
-    };
-    this.Map.prototype.moveBackground = function(direction){
-        switch(direction){
-            case 'x':
-                if( keydown.left && !this.collisions.left ){
-                    this.x += this.speed;
-                }
-                if( keydown.right && !this.collisions.right ){
-                    this.x -= this.speed;
-                }
-                this.x = this.x.clamp(-(this.width - CANVAS_WIDTH), 0);
-                break;
-            case 'y':
-                if( keydown.up && !this.collisions.up ){
-                    this.y += this.speed;
-                }
-                if( keydown.down && !this.collisions.down ){
-                    this.y -= this.speed;
-                }
-                this.y = this.y.clamp(-(this.height - CANVAS_HEIGHT), 0);
-                break;
-        }
-    };
-
-    this.Map.prototype.update = function(){
-        this.checkCollisions();
-        if( this.subject.x == CANVAS_WIDTH/2 )
-        {
-            this.moveBackground( 'x' );
-        }
-        if( this.subject.y == CANVAS_HEIGHT/2 )
-        {
-            this.moveBackground( 'y' );
-        }
-        this.subject.speedx = ( ( (keydown.left && !this.collisions.left) || (keydown.right && !this.collisions.right)) &&  ( this.x == -(this.width - CANVAS_WIDTH) || this.x ==  0) ) ? this.speed : 0;
-        this.subject.speedy = ( ( (keydown.up && !this.collisions.up) || (keydown.down && !this.collisions.down) ) && ( this.y == -(this.height - CANVAS_HEIGHT) || this.y == 0) ) ? this.speed : 0;
-    };
-
-    this.Map.prototype.draw = function(){
-        if( this.prevx != this.x || this.prevy != this.y )
-        {
-            this.fgCanvas.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            this.fgCanvas.drawImage(
-                this.layers[TYPE_FG],
-                -this.x,
-                -this.y,
-                CANVAS_WIDTH,
-                CANVAS_HEIGHT,
-                0,
-                0,
-                CANVAS_WIDTH,
-                CANVAS_HEIGHT
-            );
-            this.bgCanvas.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-            this.bgCanvas.drawImage(
-                this.layers[TYPE_BG],
-                -this.x,
-                -this.y,
-                CANVAS_WIDTH,
-                CANVAS_HEIGHT,
-                0,
-                0,
-                CANVAS_WIDTH,
-                CANVAS_HEIGHT
-            );
-            this.prevx = this.x;
-            this.prevy = this.y;
-        }
-    };
-    ////
-    // Player
-    ////
+////
+// Player
+////
     this.Player = function( options ){
         var defaultOptions = this.getDefaultOptions();
         options = (typeof options == 'object') ? $.extend(defaultOptions, options) : defaultOptions;
@@ -344,9 +237,9 @@ var Engine = new function(){
         this.prevy = this.y;
         this.height = options.height;
         this.width = options.width ;
-        this.speedx = 0;
-        this.speedy = 0;
+        this.speed = options.speed;
         this.canSwim = options.canSwim;
+        this.collisions = {left: false, right: false, up: false, down: false};
         this.canvas = createCanvas({
             zIndex: 1
         });
@@ -361,6 +254,7 @@ var Engine = new function(){
         });
         return this;
     };
+
     this.Player.prototype.getDefaultOptions = function(){
         return {
             x: CANVAS_WIDTH/2,
@@ -381,31 +275,35 @@ var Engine = new function(){
                 'down': {name:'down', from:0, until:2 }
             }
         };
-
     };
+
     this.Player.prototype.update = function(){
         if( inputArray.length > 0 )
         {
             if( keydown.left && !keydown.right ){
-                this.x -= this.speedx;
+                this.x -= (!this.collisions.left) ? this.speed : 0;
                 if( inputArray.lastItem() == "left" )
                     this.sprite.setAnimation( {name: 'left', fps: 6 } );
             }
+
             if( keydown.right && !keydown.left ){
-                this.x += this.speedx;
+                this.x += (!this.collisions.right) ? this.speed : 0;
                 if( inputArray.lastItem() == "right" )
                     this.sprite.setAnimation( {name: 'right', fps: 6 } );
             }
+
             if( keydown.up && !keydown.down ){
-                this.y -= this.speedy;
+                this.y -= (!this.collisions.up) ? this.speed : 0;
                 if( inputArray.lastItem() == "up" )
                     this.sprite.setAnimation( {name: 'up', fps: 6 } );
             }
+
             if( keydown.down && !keydown.up ){
-                this.y += this.speedy;
+                this.y += (!this.collisions.down) ? this.speed : 0;
                 if( inputArray.lastItem() == "down" )
                     this.sprite.setAnimation( {name: 'down', fps: 6 } );
             }
+
             this.sprite.updateSprite();
         }
 
@@ -413,13 +311,15 @@ var Engine = new function(){
         this.prevx = this.x;
         this.prevy = this.y;
     };
+
     this.Player.prototype.draw = function(){
         this.canvas.clearRect(this.x-5, this.y-5, this.width+10, this.height+10);
         this.sprite.drawSprite(this.canvas, this.x, this.y);
     };
-    ////
-    // Animated Sprites
-    ////
+
+////
+// Animated Sprites
+////
     this.AnimatedSprite = function( options ){
         this.source = new Image();
         this.source.src = options.source;
@@ -478,4 +378,80 @@ var Engine = new function(){
             this.frameHeight);
         return this;
     };
+
+////
+// Camera - links maps and subject (player) together
+////
+    this.Camera = function( subject, map ){
+        this.subject = subject;
+        this.map = map;
+    };
+
+    this.Camera.prototype.checkCollisions = function(){
+        var tiles = {
+            left: pixelsToTile({
+                x: this.subject.x - this.subject.speed,
+                y: this.subject.y
+            }),
+            right: pixelsToTile({
+                x:this.subject.x + this.subject.speed,
+                y: this.subject.y
+            }),
+            up: pixelsToTile({
+                x:this.subject.x,
+                y: this.subject.y - this.subject.speed
+            }),
+            down: pixelsToTile({
+                x:this.subject.x ,
+                y:this.subject.y + this.subject.speed
+            })
+        };
+        for( var x in tiles )
+        {
+           // console.log(this.map.layers[TYPE_COL].data[(tiles[x].x) + this.map.layers[TYPE_COL].width*(tiles[x].y)]);
+            switch(this.map.layers[TYPE_COL].data[(tiles[x].x) + this.map.layers[TYPE_COL].width*(tiles[x].y)])
+            {
+                case CTILE:
+                    this.subject.collisions[x] = true;
+                    break;
+                case WTILE:
+                    this.subject.collisions[x] = !this.subject.canSwim;
+                    break;
+                default:
+                    this.subject.collisions[x] = false;
+                    break;
+            }
+        }
+        return this.subject.collisions;
+    };
+
+    this.Camera.prototype.updateScene = function(){
+        this.checkCollisions();
+        this.subject.update();
+    };
+
+    this.Camera.prototype.drawScene = function(){
+        this.map.bgCanvas.save();
+        this.map.fgCanvas.save();
+        this.subject.canvas.save();
+
+        this.map.bgCanvas.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        this.map.fgCanvas.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        this.subject.canvas.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+        var translateX = -this.subject.x.clamp(CANVAS_WIDTH/2, this.map.width - CANVAS_WIDTH/2) + CANVAS_WIDTH/2;
+        var translateY = -this.subject.y.clamp(CANVAS_HEIGHT/2, this.map.height - CANVAS_HEIGHT/2) + CANVAS_HEIGHT/2
+        this.map.bgCanvas.translate( translateX, translateY );
+        this.map.fgCanvas.translate( translateX, translateY);
+        this.subject.canvas.translate( translateX, translateY );
+
+        this.map.bgCanvas.drawImage(this.map.layers[TYPE_BG], 0, 0);
+        this.map.fgCanvas.drawImage(this.map.layers[TYPE_FG], 0, 0);
+        this.subject.draw();
+
+
+        this.map.bgCanvas.restore();
+        this.map.fgCanvas.restore();
+        this.subject.canvas.restore();
+    }
 };

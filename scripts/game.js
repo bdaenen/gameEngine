@@ -1,21 +1,20 @@
 $(function(){
-    player = new Engine.Player();
-    map = new Engine.Map({
+    var player = new Engine.Player();
+    var map = new Engine.Map({
         width: 1600,
         height: 1600,
-        startx: 100,
+        startx: 0,
         starty: 0,
-        subject: player
+        subject: player/*,
+        name: "secondMap"*/
     });
-
+    var camera = new Engine.Camera( player, map );
     var update = function(){
-        player.update();
-        map.update();
+        camera.updateScene();
     };
 
     var draw = function(){
-        player.draw();
-        map.draw();
+        camera.drawScene();
     };
     Engine.start({
         level: map,
@@ -23,6 +22,8 @@ $(function(){
         updateFunction: update,
         drawFunction: draw
     });
+
+    // Simple test for touch-devices
     /*$('canvas').click(function(){
         inputArray.push('right');
         keydown['right'] = true;
