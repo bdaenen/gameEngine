@@ -441,12 +441,14 @@ var Engine = new function(){
 
         var translateX = -this.subject.x.clamp(CANVAS_WIDTH/2, this.map.width - CANVAS_WIDTH/2) + CANVAS_WIDTH/2;
         var translateY = -this.subject.y.clamp(CANVAS_HEIGHT/2, this.map.height - CANVAS_HEIGHT/2) + CANVAS_HEIGHT/2
+
+        // Draw only the visible part of the map
+        this.map.bgCanvas.drawImage(this.map.layers[TYPE_BG], -translateX, -translateY, CANVAS_WIDTH, CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        this.map.fgCanvas.drawImage(this.map.layers[TYPE_FG], -translateX, -translateY, CANVAS_WIDTH, CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        // Offset the canvas
         this.map.bgCanvas.translate( translateX, translateY );
         this.map.fgCanvas.translate( translateX, translateY);
         this.subject.canvas.translate( translateX, translateY );
-
-        this.map.bgCanvas.drawImage(this.map.layers[TYPE_BG], 0, 0);
-        this.map.fgCanvas.drawImage(this.map.layers[TYPE_FG], 0, 0);
         this.subject.draw();
 
 
