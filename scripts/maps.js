@@ -19,12 +19,16 @@ const MAPS = {
             "maps/firstMap/firstMap.png",
             "maps/firstMap/firstMap_objects.png"
         ],
-        transitions: {
+        exits: {
             south: {
                 location: [[18,49], [19,49], [20,49], [21,49]],
-                destination: "secondMap"
+                spawnLocation: [[18,47], [19,47], [20,47], [21,47]],
+                destination: "secondMap",
+                destinationSpawn: "north"
             }
-        }
+        },
+        width: 1600,
+        height: 1600
     },
     secondMap: {
         paths: [
@@ -32,11 +36,15 @@ const MAPS = {
             "maps/secondMap/secondMap.png",
             "maps/secondMap/secondMap_objects.png"
         ],
-        transitions: {
+        exits: {
             north: {
                 location: [[18,0], [19,0], [20,0], [21,0]],
-                destination: "firstMap"
+                spawnLocation: [[18,1], [19,1], [20,1], [21,1]],
+                destination: "firstMap",
+                destinationSpawn: "south"
             }
-        }
+        },
+        width: 1600,
+        height: 1600
     }
 };

@@ -1,10 +1,21 @@
 ////
 //  Prototyping and shims
 ////
+/**
+ *
+ * @param min
+ * @param max
+ * @returns {number}
+ */
 Number.prototype.clamp = function(min, max) {
     return Math.min(Math.max(this, min), max);
 };
-
+/**
+ *
+ * @param min
+ * @param max
+ * @returns {*}
+ */
 Array.prototype.lastItem = function(min, max){
     return this[this.length - 1];
 };
@@ -20,9 +31,17 @@ window.requestAnimFrame = (function(){
         window.oRequestAnimationFrame      ||
         window.msRequestAnimationFrame     ||
         function(/* function */ callback, /* DOMElement */ element){
-            window.setTimeout(callback, 1000 / 60);
+            return window.setTimeout(callback, 1000 / 60);
         };
 })();
+window.cancelRequestAnimFrame = ( function() {
+    return window.cancelAnimationFrame           ||
+        window.webkitCancelRequestAnimationFrame ||
+        window.mozCancelRequestAnimationFrame    ||
+        window.oCancelRequestAnimationFrame      ||
+        window.msCancelRequestAnimationFrame     ||
+        clearTimeout
+} )();
 ////
 // Global constants
 ////
@@ -86,10 +105,15 @@ var Engine = new function(){
         });
     };
 
-////
-// General functions
-////
+    ////
+    // General functions
+    ////
     //Creates a canvas and adds it to the specified container
+    /**
+     *
+     * @param options
+     * @returns {CanvasRenderingContext2D}
+     */
     function createCanvas( options ){
         var defaultOptions = {
             height: CANVAS_HEIGHT,
@@ -111,6 +135,10 @@ var Engine = new function(){
     }
 
     //Removes the given canvas
+    /**
+     *
+     * @param context
+     */
     function removeCanvas( context ){
         $(context.canvas).remove();
     }
@@ -135,9 +163,24 @@ var Engine = new function(){
     }
 
     //Calculates which tile the given coordinate is on
+    /**
+     *
+     * @param pixelPosition
+     * @returns {{x: number, y: number}}
+     */
     function pixelsToTile( pixelPosition )
     {
         return {x: Math.round( pixelPosition.x/TILE_WIDTH), y: Math.round( pixelPosition.y/TILE_HEIGHT)};
+    }
+
+    function tilesToPixel( tilePosition )
+    {
+        console.log(tilePosition);
+        if( $.isArray(tilePosition) )
+        {
+            return {x: tilePosition[0] * TILE_WIDTH, y: tilePosition[1] * TILE_HEIGHT};
+        }
+        return {x: tilePosition.x * TILE_WIDTH, y: tilePosition.y * TILE_HEIGHT};
     }
 
     //executes the specified update operations, then calculates delta (improve timer precision), recursive
@@ -145,41 +188,55 @@ var Engine = new function(){
         Engine.updateGame();
         var delta = (new Date().getTime() - this.oldTime)/1000;
         this.oldTime = new Date().getTime();
-        setTimeout( update, FRAMETIME - delta );
+        this.updateInstance = setTimeout( update, FRAMETIME - delta );
     }
 
     //Executes the specified draw operations, then calls itself with a RAF-shim
     function draw(){
         Engine.drawGame();
-        requestAnimFrame( draw );
+        this.drawInstance = requestAnimFrame( draw );
     }
 
     function startGame(){
+        $(window).on('blur', function(){
+            window.keydown = {};
+            inputArray = [];
+        });
         this.oldTime = new Date().getTime();
         update();
         draw();
     }
 
-////
-// Maps
-////
+    ////
+    // Maps
+    ////
+    /**
+     *
+     * @param options
+     * @returns {*}
+     * @constructor
+     */
     this.Map = function( options ){
         var defaultOptions = this.getDefaultOptions();
         options = (typeof options == 'object') ? $.extend(defaultOptions, options) : defaultOptions;
 
-        this.width = options.width;
-        this.height = options.height;
+        this.name = options.name;
+        this.width = MAPS[options.name].width;
+        this.height = MAPS[options.name].height;
         this.bgCanvas = createCanvas({
             zIndex: 0
         });
         this.fgCanvas = createCanvas({
             zIndex: 2
         });
-        this.name = options.name;
         this.layers = [];
+        this.exits = MAPS[this.name].exits;
         return this;
     };
-
+    /**
+     *
+     * @returns {{width: Number, height: Number, name: string}}
+     */
     this.Map.prototype.getDefaultOptions = function(){
         return{
             width: CANVAS_WIDTH,
@@ -187,8 +244,70 @@ var Engine = new function(){
             name: DEFAULT_MAP
         };
     };
-
+    /**
+     *
+     * @param translate
+     */
+    this.Map.prototype.draw = function( translate ){
+        this.bgCanvas.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        this.fgCanvas.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        this.bgCanvas.drawImage(
+            this.layers[TYPE_BG],
+            -translate.x,
+            -translate.y,
+            CANVAS_WIDTH,
+            CANVAS_HEIGHT,
+            0,
+            0,
+            CANVAS_WIDTH,
+            CANVAS_HEIGHT
+        );
+        this.fgCanvas.drawImage(
+            this.layers[TYPE_FG],
+            -translate.x,
+            -translate.y,
+            CANVAS_WIDTH,
+            CANVAS_HEIGHT,
+            0,
+            0,
+            CANVAS_WIDTH,
+            CANVAS_HEIGHT
+        );
+        this.bgCanvas.translate( translate.x, translate.y );
+        this.fgCanvas.translate( translate.x, translate.y);
+    };
+    this.Map.prototype.loadMap = function(exit){
+        this.name = exit.destination;
+        this.width = MAPS[exit.destination].width;
+        this.height = MAPS[exit.destination].height;
+        this.exits = MAPS[exit.destination].exits;
+        this.preload();
+    };
+    this.Map.prototype.getExit = function(location){
+        var locationArray = [location.x, location.y];
+        var matches;
+        for(var x in this.exits ){
+            for( var i = 0; i < this.exits[x].location.length; i++){
+                matches = 0;
+                for( var j=0; j<this.exits[x].location[i].length; j++){
+                    if( this.exits[x].location[i][j] == locationArray[j]){
+                        matches++;
+                    }
+                }
+                if( matches == this.exits[x].location[i].length){
+                    return {exit: this.exits[x], index: i};
+                }
+            }
+        }
+        console.log('crap!');
+    };
     //Move this to camera?
+
+
+    /**
+     *
+     * @param onComplete
+     */
     this.Map.prototype.preload = function( onComplete ){
         var loadingScreen = showLoadingScreen();
         var operations = MAPS[this.name].paths;
@@ -221,13 +340,21 @@ var Engine = new function(){
         }
         $.when.apply($, promises).done(function() {
             clearLoadingScreen(loadingScreen);
-            onComplete();
+            if( typeof(onComplete) == "function" ){
+                onComplete();
+            }
         });
     };
 
-////
-// Player
-////
+    ////
+    // Player
+    ////
+    /**
+     *
+     * @param options
+     * @returns {*}
+     * @constructor
+     */
     this.Player = function( options ){
         var defaultOptions = this.getDefaultOptions();
         options = (typeof options == 'object') ? $.extend(defaultOptions, options) : defaultOptions;
@@ -311,15 +438,25 @@ var Engine = new function(){
         this.prevx = this.x;
         this.prevy = this.y;
     };
-
-    this.Player.prototype.draw = function(){
+    /**
+     *
+     * @param translate
+     */
+    this.Player.prototype.draw = function( translate ){
+        this.canvas.translate( translate.x, translate.y );
         this.canvas.clearRect(this.x-5, this.y-5, this.width+10, this.height+10);
         this.sprite.drawSprite(this.canvas, this.x, this.y);
     };
 
-////
-// Animated Sprites
-////
+    ////
+    // Animated Sprites
+    ////
+    /**
+     *
+     * @param options
+     * @returns {*}
+     * @constructor
+     */
     this.AnimatedSprite = function( options ){
         this.source = new Image();
         this.source.src = options.source;
@@ -334,12 +471,20 @@ var Engine = new function(){
         this.sets = options.hasOwnProperty('sets') ? options.sets : [];
         return this;
     };
-
+    /**
+     *
+     * @param sets
+     * @returns {*}
+     */
     this.AnimatedSprite.prototype.setAnimationSets = function( sets ){
         this.sets = sets;
         return this;
     };
-
+    /**
+     *
+     * @param options
+     * @returns {*}
+     */
     this.AnimatedSprite.prototype.setAnimation = function( options ){
         if( this.currentSet.name != options.name ){
             this.currentTimer = 0;
@@ -363,7 +508,13 @@ var Engine = new function(){
         }
         return this;
     };
-
+    /**
+     *
+     * @param canvas
+     * @param dx
+     * @param dy
+     * @returns {*}
+     */
     this.AnimatedSprite.prototype.drawSprite = function( canvas, dx, dy)
     {
         canvas.drawImage(
@@ -379,12 +530,24 @@ var Engine = new function(){
         return this;
     };
 
-////
-// Camera - links maps and subject (player) together
-////
+    ////
+    // Camera - links maps and subject (player) together
+    ////
+    /**
+     *
+     * @param subject
+     * @param map
+     * @constructor
+     */
     this.Camera = function( subject, map ){
         this.subject = subject;
         this.map = map;
+        this.translate = {x: 0, y: 0};
+    };
+
+    this.Camera.prototype.update = function(){
+        this.translate.x = -this.subject.x.clamp(CANVAS_WIDTH/2, this.map.width - CANVAS_WIDTH/2) + CANVAS_WIDTH/2;
+        this.translate.y = -this.subject.y.clamp(CANVAS_HEIGHT/2, this.map.height - CANVAS_HEIGHT/2) + CANVAS_HEIGHT/2;
     };
 
     this.Camera.prototype.checkCollisions = function(){
@@ -406,9 +569,9 @@ var Engine = new function(){
                 y:this.subject.y + this.subject.speed
             })
         };
+
         for( var x in tiles )
         {
-           // console.log(this.map.layers[TYPE_COL].data[(tiles[x].x) + this.map.layers[TYPE_COL].width*(tiles[x].y)]);
             switch(this.map.layers[TYPE_COL].data[(tiles[x].x) + this.map.layers[TYPE_COL].width*(tiles[x].y)])
             {
                 case CTILE:
@@ -425,9 +588,28 @@ var Engine = new function(){
         return this.subject.collisions;
     };
 
+    this.Camera.prototype.checkExits = function(){
+        var tilePosition = pixelsToTile({x: this.subject.x, y:this.subject.y});
+        var dataIndex = tilePosition.x + this.map.layers[TYPE_COL].width * tilePosition.y;
+        if( this.map.layers[TYPE_COL].data[dataIndex] == ETILE){
+           this.changeLevel(tilePosition);
+        }
+    };
+
+    this.Camera.prototype.changeLevel = function(tilePosition){
+        var locationData = this.map.getExit(tilePosition);
+        var spawnLocation = tilesToPixel( MAPS[locationData.exit.destination].exits[locationData.exit.destinationSpawn].spawnLocation[locationData.index] );
+        this.map.loadMap(locationData.exit);
+        this.subject.x = spawnLocation.x;
+        this.subject.y = spawnLocation.y;
+        this.subject.canvas.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    };
     this.Camera.prototype.updateScene = function(){
         this.checkCollisions();
+        this.checkExits();
         this.subject.update();
+        this.translate.x = -this.subject.x.clamp(CANVAS_WIDTH/2, this.map.width - CANVAS_WIDTH/2) + CANVAS_WIDTH/2;
+        this.translate.y = -this.subject.y.clamp(CANVAS_HEIGHT/2, this.map.height - CANVAS_HEIGHT/2) + CANVAS_HEIGHT/2;
     };
 
     this.Camera.prototype.drawScene = function(){
@@ -435,22 +617,8 @@ var Engine = new function(){
         this.map.fgCanvas.save();
         this.subject.canvas.save();
 
-        this.map.bgCanvas.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        this.map.fgCanvas.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        this.subject.canvas.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-
-        var translateX = -this.subject.x.clamp(CANVAS_WIDTH/2, this.map.width - CANVAS_WIDTH/2) + CANVAS_WIDTH/2;
-        var translateY = -this.subject.y.clamp(CANVAS_HEIGHT/2, this.map.height - CANVAS_HEIGHT/2) + CANVAS_HEIGHT/2
-
-        // Draw only the visible part of the map
-        this.map.bgCanvas.drawImage(this.map.layers[TYPE_BG], -translateX, -translateY, CANVAS_WIDTH, CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        this.map.fgCanvas.drawImage(this.map.layers[TYPE_FG], -translateX, -translateY, CANVAS_WIDTH, CANVAS_HEIGHT, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        // Offset the canvas
-        this.map.bgCanvas.translate( translateX, translateY );
-        this.map.fgCanvas.translate( translateX, translateY);
-        this.subject.canvas.translate( translateX, translateY );
-        this.subject.draw();
-
+        this.map.draw(this.translate);
+        this.subject.draw(this.translate);
 
         this.map.bgCanvas.restore();
         this.map.fgCanvas.restore();

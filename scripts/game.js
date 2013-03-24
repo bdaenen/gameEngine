@@ -1,12 +1,9 @@
 $(function(){
-    var player = new Engine.Player();
+    var player = new Engine.Player({x: 1024, y: 1024});
     var map = new Engine.Map({
         width: 1600,
         height: 1600,
-        startx: 0,
-        starty: 0,
-        subject: player/*,
-        name: "secondMap"*/
+        subject: player
     });
     var camera = new Engine.Camera( player, map );
     var update = function(){
